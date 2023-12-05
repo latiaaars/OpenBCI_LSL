@@ -17,6 +17,7 @@ import threading
 import signal
 from collections import OrderedDict
 import time
+# import open_bci_v3 as bci
 import lib.open_bci_v3 as bci
 from pylsl import StreamInfo, StreamOutlet
 import sys
@@ -24,14 +25,14 @@ import random
 
 GUI = True
 try:
-  from PyQt4.QtCore import pyqtSignal,pyqtSlot,QThread
+  from PyQt5.QtCore import pyqtSignal,pyqtSlot,QThread
 except:
   GUI = False
 
 
 class StreamerLSL(QThread if GUI == True else object):
     try:
-      from PyQt4.QtCore import pyqtSignal,pyqtSlot,QThread
+      from PyQt5.QtCore import pyqtSignal,pyqtSlot,QThread
       new_data = pyqtSignal(object)
     except:
       pass

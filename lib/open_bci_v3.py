@@ -28,13 +28,15 @@ import sys
 import glob
 import serial.tools.list_ports
 
-SAMPLE_RATE = 250.0  # Hz
+# SAMPLE_RATE = 250.0  # Hz
+SAMPLE_RATE = 200.0  # Hz
 START_BYTE = 0xA0  # start of data packet
 END_BYTE = 0xC0  # end of data packet
-ADS1299_Vref = 4.5  #reference voltage for ADC in ADS1299.  set by its hardware
-ADS1299_gain = 24.0  #assumed gain setting for ADS1299.  set by its Arduino code
-scale_fac_uVolts_per_count = ADS1299_Vref/float((pow(2,23)-1))/ADS1299_gain*1000000.
-scale_fac_accel_G_per_count = 0.002 /(pow(2,4)) #assume set to +/4G, so 2 mG 
+# ADS1299_Vref = 4.5  #reference voltage for ADC in ADS1299.  set by its hardware
+# ADS1299_gain = 24.0  #assumed gain setting for ADS1299.  set by its Arduino code
+# scale_fac_uVolts_per_count = ADS1299_Vref/float((pow(2,23)-1))/ADS1299_gain*1000000.
+# scale_fac_accel_G_per_count = 0.002 /(pow(2,4)) #assume set to +/4G, so 2 mG 
+SCALE_FACTOR_MICROVOLTS = 0.001869917138805  # Scaling factor for Ganglion board EEG data
 '''
 #Commands for in SDK http://docs.openbci.com/software/01-Open BCI_SDK:
 
@@ -73,9 +75,15 @@ class OpenBCIBoard(object):
     self.baudrate = baud
     self.timeout = timeout
     self.daisy = daisy
+
     if not port:
       port = self.find_port()
     self.port = port
+    # chatGPT addition 
+    #self.ser = serial.Serial(port=port, baudrate=baud, timeout=timeout)
+    #time.sleep(2)
+    #self.print_incoming_text()
+    # end of chatGPT addition 
     if print_enable:
       print("Connecting to V3 at port %s" %(port))
     self.ser = serial.Serial(port= port, baudrate = baud, timeout=timeout)
@@ -95,8 +103,8 @@ class OpenBCIBoard(object):
     self.streaming = False
     self.filtering_data = filter_data
     self.scaling_output = scaled_output
-    self.eeg_channels_per_sample = 8 # number of EEG channels per sample *from the board*
-    self.aux_channels_per_sample = 3 # number of AUX channels per sample *from the board*
+    self.eeg_channels_per_sample = 4 # number of EEG channels per sample *from the board*
+    # self.aux_channels_per_sample = 3 # number of AUX channels per sample *from the board*
     self.read_state = 0 
     if self.daisy is None:
       self.daisy = False
@@ -125,8 +133,8 @@ class OpenBCIBoard(object):
       return self.eeg_channels_per_sample
   
   def getNbAUXChannels(self):
-    return  self.aux_channels_per_sample
-
+   # return  self.aux_channels_per_sample
+   return  0 # Ganglion doesn't have AUX channel 
   def run(self):
     self.start_streaming()
 
@@ -157,7 +165,7 @@ class OpenBCIBoard(object):
       # read current sample
       sample = self._read_serial_binary()
       # if a daisy module is attached, wait to concatenate two samples (main board + daisy) before passing it to callback
-      if self.daisy:
+      """ if self.daisy:
         # odd sample: daisy sample, save for later
         if ~sample.id % 2:
           self.last_odd_sample = sample
@@ -167,9 +175,9 @@ class OpenBCIBoard(object):
           avg_aux_data = list((np.array(sample.aux_data) + np.array(self.last_odd_sample.aux_data))/2)
           whole_sample = OpenBCISample(sample.id, sample.channel_data + self.last_odd_sample.channel_data, avg_aux_data)
           for call in callback:
-            call(whole_sample)
-      else:
-        for call in callback:
+            call(whole_sample) 
+      """
+      for call in callback:
           call(sample)
 
       
@@ -210,7 +218,7 @@ class OpenBCIBoard(object):
             # self.warn('Skipped %d bytes before start found' %(rep))
             rep = 0;
           packet_id = struct.unpack('B', read(1))[0] #packet id goes from 0-255
-          log_bytes_in = str(packet_id);
+          # log_bytes_in = str(packet_id);
 
           self.read_state = 1
 
@@ -223,7 +231,7 @@ class OpenBCIBoard(object):
           literal_read = read(3)
 
           unpacked = struct.unpack('3B', literal_read)
-          log_bytes_in = log_bytes_in + '|' + str(literal_read);
+          # log_bytes_in = log_bytes_in + '|' + str(literal_read);
 
           #3byte int in 2s compliment
           if (unpacked[0] >= 127):
@@ -238,7 +246,7 @@ class OpenBCIBoard(object):
           myInt = struct.unpack('>i', literal_read)[0]
 
           if self.scaling_output:
-            channel_data.append(myInt*scale_fac_uVolts_per_count)
+            channel_data.append(myInt*SCALE_FACTOR_MICROVOLTS)
           else:
             channel_data.append(myInt)
 
@@ -247,7 +255,8 @@ class OpenBCIBoard(object):
       #---------Accelerometer Data---------
       elif self.read_state == 2:
         aux_data = []
-        for a in range(self.aux_channels_per_sample):
+        # Ganglion doesn't have AUX 
+        """for a in range(self.aux_channels_per_sample):
 
           #short = h
           acc = struct.unpack('>h', read(2))[0]
@@ -256,13 +265,13 @@ class OpenBCIBoard(object):
           if self.scaling_output:
             aux_data.append(acc)
           else:
-              aux_data.append(acc)
+              aux_data.append(acc)"""
 
         self.read_state = 3;
       #---------End Byte---------
       elif self.read_state == 3:
         val = struct.unpack('B', read(1))[0]
-        log_bytes_in = log_bytes_in + '|' + str(val);
+        # log_bytes_in = log_bytes_in + '|' + str(val);
         self.read_state = 0 #read next packet
         if (val == END_BYTE):
           sample = OpenBCISample(packet_id, channel_data, aux_data)
@@ -271,7 +280,7 @@ class OpenBCIBoard(object):
         else:
           self.warn("ID:<%d> <Unexpected END_BYTE found <%s> instead of <%s>"      
             %(packet_id, val, END_BYTE))
-          logging.debug(log_bytes_in);
+         # logging.debug(log_bytes_in);
           self.packets_dropped = self.packets_dropped + 1
   
   """
@@ -485,72 +494,72 @@ class OpenBCIBoard(object):
   def set_channel(self, channel, toggle_position):
     #Commands to set toggle to on position
     if toggle_position == 1:
-      if channel is 1:
+      if channel == 1:
         self.ser.write(b'!')
-      if channel is 2:
+      if channel == 2:
         self.ser.write(b'@')
-      if channel is 3:
+      if channel == 3:
         self.ser.write(b'#')
-      if channel is 4:
+      if channel == 4:
         self.ser.write(b'$')
-      if channel is 5:
+      if channel == 5:
         self.ser.write(b'%')
-      if channel is 6:
+      if channel == 6:
         self.ser.write(b'^')
-      if channel is 7:
+      if channel == 7:
         self.ser.write(b'&')
-      if channel is 8:
+      if channel == 8:
         self.ser.write(b'*')
-      if channel is 9 and self.daisy:
-        self.ser.write(b'Q')
-      if channel is 10 and self.daisy:
-        self.ser.write(b'W')
-      if channel is 11 and self.daisy:
-        self.ser.write(b'E')
-      if channel is 12 and self.daisy:
-        self.ser.write(b'R')
-      if channel is 13 and self.daisy:
-        self.ser.write(b'T')
-      if channel is 14 and self.daisy:
-        self.ser.write(b'Y')
-      if channel is 15 and self.daisy:
-        self.ser.write(b'U')
-      if channel is 16 and self.daisy:
-        self.ser.write(b'I')
+      #if channel is 9 and self.daisy:
+      #  self.ser.write(b'Q')
+     # if channel is 10 and self.daisy:
+       # self.ser.write(b'W')
+      #if channel is 11 and self.daisy:
+         #self.ser.write(b'E')
+      # if channel is 12 and self.daisy:
+       # self.ser.write(b'R')
+      # if channel is 13 and self.daisy:
+       # self.ser.write(b'T')
+      # if channel is 14 and self.daisy:
+       # self.ser.write(b'Y')
+      # if channel is 15 and self.daisy:
+      #  self.ser.write(b'U')
+     # if channel is 16 and self.daisy:
+     #   self.ser.write(b'I')
     #Commands to set toggle to off position
     elif toggle_position == 0:
-      if channel is 1:
+      if channel == 1:
         self.ser.write(b'1')
-      if channel is 2:
+      if channel == 2:
         self.ser.write(b'2')
-      if channel is 3:
+      if channel == 3:
         self.ser.write(b'3')
-      if channel is 4:
+      if channel == 4:
         self.ser.write(b'4')
-      if channel is 5:
+      if channel == 5:
         self.ser.write(b'5')
-      if channel is 6:
+      if channel == 6:
         self.ser.write(b'6')
-      if channel is 7:
+      if channel == 7:
         self.ser.write(b'7')
-      if channel is 8:
+      if channel == 8:
         self.ser.write(b'8')
-      if channel is 9 and self.daisy:
-        self.ser.write(b'q')
-      if channel is 10 and self.daisy:
-        self.ser.write(b'w')
-      if channel is 11 and self.daisy:
-        self.ser.write(b'e')
-      if channel is 12 and self.daisy:
-        self.ser.write(b'r')
-      if channel is 13 and self.daisy:
-        self.ser.write(b't')
-      if channel is 14 and self.daisy:
-        self.ser.write(b'y')
-      if channel is 15 and self.daisy:
-        self.ser.write(b'u')
-      if channel is 16 and self.daisy:
-        self.ser.write(b'i')
+     # if channel is 9 and self.daisy:
+      #  self.ser.write(b'q')
+     # if channel is 10 and self.daisy:
+      #  self.ser.write(b'w')
+      #if channel is 11 and self.daisy:
+       # self.ser.write(b'e')
+      #if channel is 12 and self.daisy:
+       # self.ser.write(b'r')
+      #if channel is 13 and self.daisy:
+       # self.ser.write(b't')
+      #if channel is 14 and self.daisy:
+       # self.ser.write(b'y')
+      #if channel is 15 and self.daisy:
+       # self.ser.write(b'u')
+      #if channel is 16 and self.daisy:
+       # self.ser.write(b'i')
 
   def find_port(self):
     try:
