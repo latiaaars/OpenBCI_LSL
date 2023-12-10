@@ -3,11 +3,10 @@ import numpy as np
 
 class Filters:
 	def __init__(self,window_size, low, high):
-		fs_Hz = 250;
+		fs_Hz = 200;
 		fn = fs_Hz/2
 		self.filtered_data = np.array((window_size,1))
 		
-
 		#######################################
 		# Filter Creation
 		# -------------------------------------

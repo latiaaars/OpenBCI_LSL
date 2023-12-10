@@ -61,15 +61,15 @@ class StreamerLSL(QThread if GUI == True else object):
       else:
         self.board = bci.OpenBCIBoard(port=port)
       self.eeg_channels = self.board.getNbEEGChannels()
-      self.aux_channels = self.board.getNbAUXChannels()
+      # self.aux_channels = self.board.getNbAUXChannels()
       self.sample_rate = self.board.getSampleRate()
 
     def init_board_settings(self):
       #set default board configuration
 
       #default to 16 channels initially
-      self.default_settings["Number_Channels"] = [b'C']
-      for i in range(16):
+      self.default_settings["Number_Channels"] = [b'G']
+      for i in range(4):
         current = "channel{}".format(i+1)
         self.default_settings[current] = []
         self.default_settings[current].append(b'x')
@@ -113,15 +113,15 @@ class StreamerLSL(QThread if GUI == True else object):
         eeg_hz = self.sample_rate
         eeg_data = 'float32'
         eeg_id = 'openbci_eeg_id' + str(random_id)
-        aux_name = 'openbci_aux'
-        aux_type = 'AUX'
-        aux_chan = self.aux_channels
-        aux_hz = self.sample_rate
-        aux_data = 'float32'
-        aux_id = 'openbci_aux_id' + str(random_id)
+        #aux_name = 'openbci_aux'
+        #aux_type = 'AUX'
+        #aux_chan = self.aux_channels
+        #aux_hz = self.sample_rate
+        #aux_data = 'float32'
+        #aux_id = 'openbci_aux_id' + str(random_id)
         #create StreamInfo
         self.info_eeg = StreamInfo(eeg_name,eeg_type,eeg_chan,eeg_hz,eeg_data,eeg_id)
-        self.info_aux = StreamInfo(aux_name,aux_type,aux_chan,aux_hz,aux_data,aux_id)
+        #self.info_aux = StreamInfo(aux_name,aux_type,aux_chan,aux_hz,aux_data,aux_id)
       else:
         #user input parameters
         eeg_name = stream1['name']
@@ -130,23 +130,23 @@ class StreamerLSL(QThread if GUI == True else object):
         eeg_hz = stream1['sample_rate']
         eeg_data = stream1['datatype']
         eeg_id = stream1['id']
-        aux_name = stream2['name']
-        aux_type = stream2['type']
-        aux_chan = stream2['channels']
-        aux_hz = stream2['sample_rate']
-        aux_data = stream2['datatype']
-        aux_id = stream2['id']
+        #aux_name = stream2['name']
+        #aux_type = stream2['type']
+        #aux_chan = stream2['channels']
+        #aux_hz = stream2['sample_rate']
+        #aux_data = stream2['datatype']
+        #aux_id = stream2['id']
         #create StreamInfo
         self.info_eeg = StreamInfo(eeg_name,eeg_type,eeg_chan,eeg_hz,eeg_data,eeg_id)
-        self.info_aux = StreamInfo(aux_name,aux_type,aux_chan,aux_hz,aux_data,aux_id)
+        #self.info_aux = StreamInfo(aux_name,aux_type,aux_chan,aux_hz,aux_data,aux_id)
       
 
       #channel locations
       chns = self.info_eeg.desc().append_child('channels')
-      if self.eeg_channels == 16:
-        labels = ['Fp1','Fp2', 'C3','C4','T5','T6','O1','O2','F7','F8','F3','F4','T3','T4','P3','P4']
-      else:
-        labels = ['Fp1','Fp2', 'C3','C4','T5','T6','O1','O2']
+     # if self.eeg_channels == 16:
+        # labels = ['Fp1','Fp2', 'C3','C4','T5','T6','O1','O2','F7','F8','F3','F4','T3','T4','P3','P4']
+      # else:
+      labels = ['Fp1','Fp2','O1','O2']
       for label in labels:
         ch = chns.append_child("channel")
         ch.append_child_value('label', label)
@@ -155,11 +155,11 @@ class StreamerLSL(QThread if GUI == True else object):
 
       #additional Meta Data
       self.info_eeg.desc().append_child_value('manufacturer','OpenBCI Inc.')
-      self.info_aux.desc().append_child_value('manufacturer','OpenBCI Inc.')
+      #self.info_aux.desc().append_child_value('manufacturer','OpenBCI Inc.')
 
       #create StreamOutlet
       self.outlet_eeg = StreamOutlet(self.info_eeg)
-      self.outlet_aux = StreamOutlet(self.info_aux)
+      #self.outlet_aux = StreamOutlet(self.info_aux)
         
       print ("--------------------------------------\n"+ \
             "LSL Configuration: \n" + \
@@ -170,13 +170,6 @@ class StreamerLSL(QThread if GUI == True else object):
             "      Sampling Rate: " + str(eeg_hz) + "\n" + \
             "      Channel Format: "+ eeg_data + " \n" + \
             "      Source Id: " + eeg_id + " \n" + \
-            "  Stream 2: \n" + \
-            "      Name: " + aux_name + " \n" + \
-            "      Type: "+ aux_type + " \n" + \
-            "      Channel Count: " + str(aux_chan) + "\n" + \
-            "      Sampling Rate: " + str(aux_hz) + "\n" + \
-            "      Channel Format: " + aux_data +" \n" + \
-            "      Source Id: " + aux_id + " \n\n" + \
             "Electrode Location Montage:\n" + \
             str(labels) + "\n" + \
             "---------------------------------------\n")
@@ -190,7 +183,8 @@ class StreamerLSL(QThread if GUI == True else object):
       boardThread = threading.Thread(target=self.board.start_streaming,args=(self.send,-1))
       boardThread.daemon = True # will stop on exit
       boardThread.start()
-      print("Current streaming: {} EEG channels and {} AUX channels at {} Hz\n".format(self.eeg_channels, self.aux_channels,self.sample_rate))
+      print("Current streaming: {} EEG channels at {} Hz\n".format(self.eeg_channels, self.sample_rate))
+    
     def stop_streaming(self):
       self.board.stop()
 
@@ -221,10 +215,10 @@ class StreamerLSL(QThread if GUI == True else object):
         # s: stop board streaming; v: soft reset of the 32-bit board (no effect with 8bit board)
         s = 'sv'
         # Tell the board to enable or not daisy module
-        if self.board.daisy:
-            s = s + 'C'
-        else:
-            s = s + 'c'
+       # if self.board.daisy:
+        #    s = s + 'C'
+        #else:
+        #    s = s + 'c'
         # d: Channels settings back to default
         s = s + 'd'
 
@@ -325,4 +319,4 @@ class StreamerLSL(QThread if GUI == True else object):
 
       #create StreamOutlet
       self.outlet_eeg = StreamOutlet(self.info_eeg)
-      self.outlet_aux = StreamOutlet(self.info_aux)
+      #self.outlet_aux = StreamOutlet(self.info_aux)

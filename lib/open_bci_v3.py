@@ -106,10 +106,10 @@ class OpenBCIBoard(object):
     self.eeg_channels_per_sample = 4 # number of EEG channels per sample *from the board*
     # self.aux_channels_per_sample = 3 # number of AUX channels per sample *from the board*
     self.read_state = 0 
-    if self.daisy is None:
-      self.daisy = False
+   # if self.daisy is None:
+    #  self.daisy = False
 
-    self.last_odd_sample = OpenBCISample(-1, [], []) # used for daisy
+    #self.last_odd_sample = OpenBCISample(-1, [], []) # used for daisy
 
     self.log_packet_count = 0
     self.attempt_reconnect = False
@@ -121,15 +121,15 @@ class OpenBCIBoard(object):
     atexit.register(self.disconnect)
   
   def getSampleRate(self):
-    if self.daisy:
-      return SAMPLE_RATE/2
-    else:
-      return SAMPLE_RATE
+   # if self.daisy:
+     # return SAMPLE_RATE/2
+    #else:
+    return SAMPLE_RATE
   
   def getNbEEGChannels(self):
-    if self.daisy:
-      return self.eeg_channels_per_sample*2
-    else:
+  #  if self.daisy:
+      #return self.eeg_channels_per_sample*2
+    #else:
       return self.eeg_channels_per_sample
   
   def getNbAUXChannels(self):
