@@ -22,7 +22,7 @@ np.set_printoptions(threshold=np.inf)
 
 
 try:
-  from PyQt4 import QtGui,QtCore
+  from PyQt5 import QtGui,QtCore
 except ImportError:
   print("GUI unavailable: PyQt4 not installed. \n" + \
     "Use command line interface: \n" + \
